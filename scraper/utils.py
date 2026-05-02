@@ -7,7 +7,7 @@ base_headers = {
 }
 
 def scrape_understat(season: int) -> list:
-    url = f"https://understat.com/getLeagueData/EPL/{season}",
+    url = f"https://understat.com/getLeagueData/EPL/{season}"
     r = requests.get(
         url, 
         headers={"X-Requested-With": "XMLHttpRequest"}
@@ -23,7 +23,7 @@ def scrape_understat(season: int) -> list:
     ]
 
 
-def scrape_understat_matches(matches):
+def scrape_understat_matches(matches) -> pd.DataFrame:
     
     df = pd.DataFrame()
     base = "https://understat.com/"
@@ -36,7 +36,7 @@ def scrape_understat_matches(matches):
             continue
         
         for x in ["h", "a"]:
-            data_tmp = data["rosters"][f"{x}"].T.reset_index(drop=True)
+            data_tmp = pd.DataFrame(data["rosters"][f"{x}"]).T.reset_index(drop=True)
             data_tmp.loc[:, "match_id"] = match
             df = pd.concat([df, data_tmp])
             del data_tmp
@@ -45,7 +45,7 @@ def scrape_understat_matches(matches):
 
 
 
-def scrape_tfmkt_values(player: str) -> pd.DataFrame:
+def scrape_tfmkt_values(player: int) -> pd.DataFrame:
     r = requests.get(
         f"https://tmapi-alpha.transfermarkt.technology/player/{player}/market-value-history",
         headers=base_headers
@@ -57,7 +57,23 @@ def scrape_tfmkt_values(player: str) -> pd.DataFrame:
         print(f"Invalid player {player}")
     
     df = pd.DataFrame([x["marketValue"] for x in data])
-    df["clubId"] = data["clubId"]
+    df["clubId"] = pd.DataFrame([x["clubId"] for x in data])
+    club_names = {}
+    for club_id in set([x["clubId"] for x in data]):
+        r = requests.get(f"https://tmapi-alpha.transfermarkt.technology/club/{club_id}",
+        headers=base_headers
+        )
+        club_name = r.json()["data"]['name'] 
+        club_names[club_id] = club_name
+    df["clubName"] = df["clubId"].map(club_names)
+    df["playerId"] = player
+    player_name = 1
+    r = requests.get(
+        f"https://tmapi-alpha.transfermarkt.technology/player/{player}",
+        headers=base_headers
+    )
+    player_name = r.json()["data"]['name']
+    df["name"] = player_name
     return df.drop(["compact"], axis=1)
     
         
